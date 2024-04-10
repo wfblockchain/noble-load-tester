@@ -1,43 +1,39 @@
 package noble
 
 import (
+	"encoding/hex"
 	"fmt"
 
-	"github.com/noble-assets/noble/v5/app"
-
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/informalsystems/tm-load-test/pkg/loadtest"
+	"github.com/wfblockchain/noblechain/v5/app"
+	"github.com/wfblockchain/noblechain/v5/cmd"
+	tf "github.com/wfblockchain/noblechain/v5/x/tokenfactory/types"
 
-	"encoding/hex"
+	"github.com/gogo/protobuf/proto"
 
 	"github.com/cosmos/cosmos-sdk/client"
-
 	"github.com/cosmos/cosmos-sdk/client/tx"
-
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
 const (
 	KVStoreClientIDLen int = 5 // Allows for 6,471,002 random client IDs (62C5)
 	kvstoreMinValueLen int = 1 // We at least need 1 character in a key/value pair's value.
 	chainID                = "noble-1"
-	pvtKey                 = "key"
+	pvtKey                 = "1e888b53ef1278956c590255b77259b4a2572fa1938bc61304011b3aa549cada" // pvtkey of owner
+	ownerAddr              = "noble1hsjfews729je9h0v5tdd94xcgqr4phkuptakxp"                     // owner-address
+	masterMinterAddr       = "noble1a3j0z8pq960apqvhwp4nu5gv80mk4hvhwg3mu0"                     // masterMinter-address
+	ownerPubKey            = "Avor+7fYYiDhfHhmM9RQSEFHK+IDsw32G+K/PD+Z3F1f"                     // owner-address
+	masterMinterPubKey     = "AmVDyRnk7I/VYh5jpt1EJTgcbSAsZxO5UdZrIK0iuBvY"                     // masterMinter-address
+	masterMinterPvtKey     = "7c27b0844932f078c941960c70bf4d0bec51f77cf6349b84617f19350a09a8d0" // masterMinter-address
 )
 
 type NobleClientFactory struct{}
 
-// KVStoreClient generates arbitrary transactions (random key=value pairs) to
-// be sent to the kvstore ABCI application. The keys are structured as follows:
-//
-// `[client_id][tx_id]=[tx_id]`
-//
-// where each value (`client_id` and `tx_id`) is padded with 0s to meet the
-// transaction size requirement.
-type NobleClient struct {
-}
+type NobleClient struct{}
 
 var (
 	_ loadtest.ClientFactory = (*NobleClientFactory)(nil)
@@ -45,9 +41,10 @@ var (
 )
 
 func init() {
-	if err := loadtest.RegisterClientFactory("noble", NewNobleClientFactory()); err != nil {
-		panic(err)
-	}
+	// if err := loadtest.RegisterClientFactory("noble", NewNobleClientFactory()); err != nil {
+	// 	fmt.Println("yoooo")
+	// 	panic(err)
+	// }
 }
 
 func NewNobleClientFactory() *NobleClientFactory {
@@ -55,50 +52,15 @@ func NewNobleClientFactory() *NobleClientFactory {
 }
 
 func (f *NobleClientFactory) ValidateConfig(cfg loadtest.Config) error {
-	// maxTxsPerEndpoint := cfg.MaxTxsPerEndpoint()
-	// if maxTxsPerEndpoint < 1 {
-	// 	return fmt.Errorf("cannot calculate an appropriate maximum number of transactions per endpoint (got %d)", maxTxsPerEndpoint)
-	// }
-	// minKeySuffixLen, err := requiredKVStoreSuffixLen(maxTxsPerEndpoint)
-	// if err != nil {
-	// 	return err
-	// }
-	// // "[client_id][random_suffix]=[value]"
-	// minTxSize := KVStoreClientIDLen + minKeySuffixLen + 1 + kvstoreMinValueLen
-	// if cfg.Size < minTxSize {
-	// 	return fmt.Errorf("transaction size %d is too small for given parameters (should be at least %d bytes)", cfg.Size, minTxSize)
-	// }
 	return nil
 }
 
 func (f *NobleClientFactory) NewClient(cfg loadtest.Config) (loadtest.Client, error) {
-	// keyPrefix := []byte(randStr(KVStoreClientIDLen))
-	// keySuffixLen, err := requiredKVStoreSuffixLen(cfg.MaxTxsPerEndpoint())
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// keyLen := len(keyPrefix) + keySuffixLen
-	// // value length = key length - 1 (to cater for "=" symbol)
-	// valueLen := cfg.Size - keyLen - 1
 	return &NobleClient{}, nil
 }
 
-// func requiredKVStoreSuffixLen(maxTxCount uint64) (int, error) {
-// 	// for l, maxTxs := range kvstoreMaxTxsByKeySuffixLen {
-// 	// 	if maxTxCount < maxTxs {
-// 	// 		if l+1 > len(kvstoreMaxTxsByKeySuffixLen) {
-// 	// 			return -1, fmt.Errorf("cannot cater for maximum tx count of %d (too many unique transactions, suffix length %d)", maxTxCount, l+1)
-// 	// 		}
-// 	// 		// we use l+1 to minimize collision probability
-// 	// 		return l + 1, nil
-// 	// 	}
-// 	// }
-// 	// return -1, fmt.Errorf("cannot cater for maximum tx count of %d (too many unique transactions)", maxTxCount)
-// }
-
 func (c *NobleClient) GenerateTx() ([]byte, error) {
-	TxConfig := app.MakeEncodingConfig().TxConfig
-
+	TxConfig := cmd.MakeEncodingConfig(app.ModuleBasics).TxConfig
 	TxBuilder := TxConfig.NewTxBuilder()
 	TxBuilder.SetGasLimit(500000)
 
@@ -108,50 +70,72 @@ func (c *NobleClient) GenerateTx() ([]byte, error) {
 	msg, err := createMsgs()
 	if err != nil {
 		fmt.Println(err)
+		panic("msg creation failed")
 	}
 
 	err1 := TxBuilder.SetMsgs(msg)
 	if err1 != nil {
 		fmt.Println(err1)
+		panic("msg setting failed")
 	}
 
 	//signing the msg
-	error := signTX(TxBuilder, TxConfig, accNum, accSeq)
-	if error != nil {
-		fmt.Println(error)
+	err = signTX(TxBuilder, TxConfig, accNum, accSeq)
+	if err != nil {
+		fmt.Println(err)
+		panic("sign failed")
 	}
-	return []byte{}, nil
+
+	txBytes, err := TxConfig.TxEncoder()(TxBuilder.GetTx())
+	if err != nil {
+		fmt.Println(err)
+		panic("encoder failed")
+	}
+	return txBytes, nil
 }
 
-func createMsgs() (error, error) {
+func createMsgs() (*tf.MsgUpdateMasterMinter, error) {
+	// amt, ok := math.NewIntFromString("1")
+	// if !ok {
+	// 	panic("amnt wrong")
+	// }
+	// mmPub, _ := hex.DecodeString(masterMinterPubKey)
+	// masterMinterPub := secp256k1.PubKey{Key: mmPub}
+	// masterMinter := sdk.AccAddress(masterMinterPub.Address())
+	// fmt.Printf(masterMinter.String())
+	// // if err != nil {
+	// // 	fmt.Printf("err: %s\n", err)
+	// // 	panic("master address not correct")
+	// // }
+	// oPub, _ := hex.DecodeString(ownerPubKey)
+	// ownerPub := secp256k1.PubKey{Key: oPub}
+	// owner := sdk.AccAddress(ownerPub.Address())
+	// // owner, err := sdk.AccAddressFromBech32(ownerAddr)
+	// // if err != nil {
+	// // 	panic("owner address not correct")
+	// // }
+	// msg := bank.NewMsgSend(owner, masterMinter, sdk.NewCoins(sdk.NewCoin("ustake", amt)))
+	privKey := secp256k1.GenPrivKey()
+	err := proto.Unmarshal([]byte(masterMinterPvtKey), privKey)
+	pbkk := privKey.PubKey()
+	fmt.Println(pbkk)
 
-	// did := types.NewChainDID(chainID, id)
+	if err != nil {
+		fmt.Println("Error while unmarshaling privKey: ", err)
+		panic(pbkk)
+		// return nil, err
+	}
+	msg := tf.NewMsgUpdateMasterMinter(ownerAddr, masterMinterAddr)
+	if err := msg.ValidateBasic(); err != nil {
+		panic(err)
+	}
 
-	// vmID := did.NewVerificationMethodID(signer)
-
-	// auth := types.NewVerification(
-	// 	types.NewVerificationMethod(
-	// 		vmID,
-	// 		did,
-	// 		types.NewPublicKeyMultibase([]byte(pubKey), vmType),
-	// 	),
-	// 	[]string{types.Authentication},
-	// 	nil,
-	// )
-
-	// msg := types.NewMsgCreateDidDocument(
-	// 	did.String(),
-	// 	types.Verifications{auth},
-	// 	types.Services{},
-	// 	signer,
-	// )
-	return nil, nil
+	return msg, nil
 }
 
 func signTX(TxBuilder client.TxBuilder, TxConfig client.TxConfig, accNum uint64, accSeq uint64) error {
 	privB, _ := hex.DecodeString(pvtKey)
 	priv1 := secp256k1.PrivKey{Key: privB}
-
 	/*************************************************************************************************/
 	privs := []cryptotypes.PrivKey{&priv1}
 	accNums := []uint64{accNum} // The accounts' account numbers
