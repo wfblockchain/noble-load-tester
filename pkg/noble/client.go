@@ -6,13 +6,13 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/informalsystems/tm-load-test/pkg/loadtest"
 	"github.com/wfblockchain/noblechain/v5/app"
 	"github.com/wfblockchain/noblechain/v5/cmd"
-	tf "github.com/wfblockchain/noblechain/v5/x/tokenfactory/types"
-
-	"github.com/gogo/protobuf/proto"
+	tftypes "github.com/wfblockchain/noblechain/v5/x/tokenfactory/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -20,15 +20,12 @@ import (
 )
 
 const (
-	KVStoreClientIDLen int = 5 // Allows for 6,471,002 random client IDs (62C5)
-	kvstoreMinValueLen int = 1 // We at least need 1 character in a key/value pair's value.
-	chainID                = "noble-1"
-	pvtKey                 = "1e888b53ef1278956c590255b77259b4a2572fa1938bc61304011b3aa549cada" // pvtkey of owner
-	ownerAddr              = "noble1hsjfews729je9h0v5tdd94xcgqr4phkuptakxp"                     // owner-address
-	masterMinterAddr       = "noble1a3j0z8pq960apqvhwp4nu5gv80mk4hvhwg3mu0"                     // masterMinter-address
-	ownerPubKey            = "Avor+7fYYiDhfHhmM9RQSEFHK+IDsw32G+K/PD+Z3F1f"                     // owner-address
-	masterMinterPubKey     = "AmVDyRnk7I/VYh5jpt1EJTgcbSAsZxO5UdZrIK0iuBvY"                     // masterMinter-address
-	masterMinterPvtKey     = "7c27b0844932f078c941960c70bf4d0bec51f77cf6349b84617f19350a09a8d0" // masterMinter-address
+	chainID             = "noble-1"
+	pvtKey              = "3e3d956c26ef52304a07d91950fc4a6a8da6153ba2d589abf2f7cb9afedbe33b" // pvtkey of owner
+	ownerAddr           = "noble16kdnj7qvpysku6lzsns6zqxckldtd73thw7xc8"                     // owner-address
+	masterMinterAddr    = "noble167rtuqztu3hu0rgg0sflhvqa9k342n4p067j6f"                     // masterMinter-address
+	ownerPrivKey        = pvtKey                                                             // owner-privkey
+	masterMinterPrivKey = "4c0f886131459c4890e734f75f96f50fef872059ec77493e8cb0631e2bfad480" // masterMinter-privkey
 )
 
 type NobleClientFactory struct{}
@@ -36,15 +33,15 @@ type NobleClientFactory struct{}
 type NobleClient struct{}
 
 var (
-	_ loadtest.ClientFactory = (*NobleClientFactory)(nil)
-	_ loadtest.Client        = (*NobleClient)(nil)
+	_      loadtest.ClientFactory = (*NobleClientFactory)(nil)
+	_      loadtest.Client        = (*NobleClient)(nil)
+	accSeq uint64                 = uint64(181)
+	accNum uint64                 = uint64(0)
 )
 
 func init() {
-	// if err := loadtest.RegisterClientFactory("noble", NewNobleClientFactory()); err != nil {
-	// 	fmt.Println("yoooo")
-	// 	panic(err)
-	// }
+	cfg := sdk.GetConfig()
+	cfg.SetBech32PrefixForAccount("noble", "noblepub")
 }
 
 func NewNobleClientFactory() *NobleClientFactory {
@@ -62,12 +59,11 @@ func (f *NobleClientFactory) NewClient(cfg loadtest.Config) (loadtest.Client, er
 func (c *NobleClient) GenerateTx() ([]byte, error) {
 	TxConfig := cmd.MakeEncodingConfig(app.ModuleBasics).TxConfig
 	TxBuilder := TxConfig.NewTxBuilder()
-	TxBuilder.SetGasLimit(500000)
+	TxBuilder.SetGasLimit(500000000)
 
 	// accNum, accSeq := getUserInfo(grpcConn)
-	accNum, accSeq := uint64(0), uint64(0)
 
-	msg, err := createMsgs()
+	msg, err := createMsgs1()
 	if err != nil {
 		fmt.Println(err)
 		panic("msg creation failed")
@@ -81,54 +77,46 @@ func (c *NobleClient) GenerateTx() ([]byte, error) {
 
 	//signing the msg
 	err = signTX(TxBuilder, TxConfig, accNum, accSeq)
+	accSeq++
 	if err != nil {
 		fmt.Println(err)
 		panic("sign failed")
 	}
-
 	txBytes, err := TxConfig.TxEncoder()(TxBuilder.GetTx())
 	if err != nil {
 		fmt.Println(err)
 		panic("encoder failed")
 	}
+
 	return txBytes, nil
 }
 
-func createMsgs() (*tf.MsgUpdateMasterMinter, error) {
-	// amt, ok := math.NewIntFromString("1")
-	// if !ok {
-	// 	panic("amnt wrong")
-	// }
-	// mmPub, _ := hex.DecodeString(masterMinterPubKey)
-	// masterMinterPub := secp256k1.PubKey{Key: mmPub}
-	// masterMinter := sdk.AccAddress(masterMinterPub.Address())
-	// fmt.Printf(masterMinter.String())
-	// // if err != nil {
-	// // 	fmt.Printf("err: %s\n", err)
-	// // 	panic("master address not correct")
-	// // }
-	// oPub, _ := hex.DecodeString(ownerPubKey)
-	// ownerPub := secp256k1.PubKey{Key: oPub}
-	// owner := sdk.AccAddress(ownerPub.Address())
-	// // owner, err := sdk.AccAddressFromBech32(ownerAddr)
-	// // if err != nil {
-	// // 	panic("owner address not correct")
-	// // }
-	// msg := bank.NewMsgSend(owner, masterMinter, sdk.NewCoins(sdk.NewCoin("ustake", amt)))
-	privKey := secp256k1.GenPrivKey()
-	err := proto.Unmarshal([]byte(masterMinterPvtKey), privKey)
-	pbkk := privKey.PubKey()
-	fmt.Println(pbkk)
-
+func createMsgs() (*banktypes.MsgSend, error) {
+	owner, err := sdk.AccAddressFromBech32(ownerAddr)
 	if err != nil {
-		fmt.Println("Error while unmarshaling privKey: ", err)
-		panic(pbkk)
-		// return nil, err
-	}
-	msg := tf.NewMsgUpdateMasterMinter(ownerAddr, masterMinterAddr)
-	if err := msg.ValidateBasic(); err != nil {
 		panic(err)
 	}
+	masterMinter, err := sdk.AccAddressFromBech32(masterMinterAddr)
+	if err != nil {
+		panic(err)
+	}
+
+	msg := banktypes.NewMsgSend(owner, masterMinter, sdk.NewCoins(sdk.NewInt64Coin("stake", 10000)))
+
+	return msg, nil
+}
+
+func createMsgs1() (*tftypes.MsgUpdateMasterMinter, error) {
+	// owner, err := sdk.AccAddressFromBech32(ownerAddr)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// masterMinter, err := sdk.AccAddressFromBech32(masterMinterAddr)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	msg := tftypes.NewMsgUpdateMasterMinter(ownerAddr, masterMinterAddr)
 
 	return msg, nil
 }

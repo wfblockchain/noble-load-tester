@@ -4,7 +4,6 @@ go 1.22
 
 require (
 	github.com/cosmos/cosmos-sdk v0.47.5
-	github.com/gogo/protobuf v1.3.3
 	github.com/informalsystems/tm-load-test v1.3.0
 	github.com/wfblockchain/noblechain/v5 v5.0.0-20240319053508-361f2318e746
 )
@@ -75,6 +74,7 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
+	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/golang/glog v1.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/mock v1.6.0 // indirect
@@ -131,10 +131,10 @@ require (
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.15.0 // indirect
+	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rakyll/statik v0.1.7 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
@@ -189,6 +189,7 @@ require (
 replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+	github.com/informalsystems/tm-load-test => /home/leo10/tm-load-test
 	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.37.2
 	// // github.com/wfblockchain/noblechain/v5 => /home/leo10/noblechain
 	// github.com/cosmos/cosmos-sdk/simapp => cosmossdk.io/simapp v0.0.0-20240408150508-e5b0e0e4b245
