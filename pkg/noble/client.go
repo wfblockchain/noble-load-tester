@@ -1,6 +1,7 @@
 package noble
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 
@@ -8,11 +9,14 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/gogo/protobuf/proto"
 	"github.com/informalsystems/tm-load-test/pkg/loadtest"
 	"github.com/wfblockchain/noblechain/v5/app"
 	"github.com/wfblockchain/noblechain/v5/cmd"
 	tftypes "github.com/wfblockchain/noblechain/v5/x/tokenfactory/types"
+	"google.golang.org/grpc"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -20,12 +24,16 @@ import (
 )
 
 const (
-	chainID             = "noble-1"
-	pvtKey              = "3e3d956c26ef52304a07d91950fc4a6a8da6153ba2d589abf2f7cb9afedbe33b" // pvtkey of owner
-	ownerAddr           = "noble16kdnj7qvpysku6lzsns6zqxckldtd73thw7xc8"                     // owner-address
-	masterMinterAddr    = "noble167rtuqztu3hu0rgg0sflhvqa9k342n4p067j6f"                     // masterMinter-address
-	ownerPrivKey        = pvtKey                                                             // owner-privkey
-	masterMinterPrivKey = "4c0f886131459c4890e734f75f96f50fef872059ec77493e8cb0631e2bfad480" // masterMinter-privkey
+	chainID          = "noble-1"
+	minterAddr       = "noble1trtrz3frm525u3f3p7ljg95eck46nnamucjtkn" // minter-address
+	aliceAddr        = "noble1tweszwejavrg03rzr0rz58zud9g32jst979tud"
+	minterPrivKey    = "d76e7da1dac0301e0491c560bd5923b94df2f25f06fc804ebad87e7478cf52b2" // minter-privkey
+	alicePrivKey     = "cd5d41f79c7ef00e44f747a7b404cbaa9172416ded9fe98760b0ebbf82dddaed" // alice-privkey
+	mintAmt          = 100000000
+	burnAmt          = 1
+	transferAmt      = 10
+	transferCntLimit = 100
+	tfDenom          = "utoken"
 )
 
 type NobleClientFactory struct{}
@@ -33,15 +41,23 @@ type NobleClientFactory struct{}
 type NobleClient struct{}
 
 var (
-	_      loadtest.ClientFactory = (*NobleClientFactory)(nil)
-	_      loadtest.Client        = (*NobleClient)(nil)
-	accSeq uint64                 = uint64(181)
-	accNum uint64                 = uint64(0)
+	_            loadtest.ClientFactory = (*NobleClientFactory)(nil)
+	_            loadtest.Client        = (*NobleClient)(nil)
+	minterAccSeq uint64                 = uint64(722)
+	minterAccNum uint64                 = uint64(8)
+	aliceAccSeq  uint64                 = uint64(59)
+	aliceAccNum  uint64                 = uint64(12)
+	mint         bool                   = true
+	transfer     bool                   = false
+	burn         bool                   = false
+	transferCnt  int                    = 0
 )
 
 func init() {
 	cfg := sdk.GetConfig()
 	cfg.SetBech32PrefixForAccount("noble", "noblepub")
+	// minterAccNum, minterAccSeq = getUserInfo(minterAddr)
+	// aliceAccNum, aliceAccSeq = getUserInfo(aliceAddr)
 }
 
 func NewNobleClientFactory() *NobleClientFactory {
@@ -59,29 +75,16 @@ func (f *NobleClientFactory) NewClient(cfg loadtest.Config) (loadtest.Client, er
 func (c *NobleClient) GenerateTx() ([]byte, error) {
 	TxConfig := cmd.MakeEncodingConfig(app.ModuleBasics).TxConfig
 	TxBuilder := TxConfig.NewTxBuilder()
-	TxBuilder.SetGasLimit(500000000)
+	TxBuilder.SetGasLimit(500000)
 
 	// accNum, accSeq := getUserInfo(grpcConn)
 
-	msg, err := createMsgs1()
+	err := createMsgsAndSign(TxBuilder, TxConfig)
 	if err != nil {
 		fmt.Println(err)
 		panic("msg creation failed")
 	}
 
-	err1 := TxBuilder.SetMsgs(msg)
-	if err1 != nil {
-		fmt.Println(err1)
-		panic("msg setting failed")
-	}
-
-	//signing the msg
-	err = signTX(TxBuilder, TxConfig, accNum, accSeq)
-	accSeq++
-	if err != nil {
-		fmt.Println(err)
-		panic("sign failed")
-	}
 	txBytes, err := TxConfig.TxEncoder()(TxBuilder.GetTx())
 	if err != nil {
 		fmt.Println(err)
@@ -91,38 +94,71 @@ func (c *NobleClient) GenerateTx() ([]byte, error) {
 	return txBytes, nil
 }
 
-func createMsgs() (*banktypes.MsgSend, error) {
-	owner, err := sdk.AccAddressFromBech32(ownerAddr)
-	if err != nil {
-		panic(err)
+func createMsgsAndSign(TxBuilder client.TxBuilder, TxConfig client.TxConfig) error {
+	var msg sdk.Msg
+	switch {
+	case mint:
+		msg = tftypes.NewMsgMint(minterAddr, aliceAddr, sdk.NewInt64Coin(tfDenom, mintAmt))
+		err := TxBuilder.SetMsgs(msg)
+		if err != nil {
+			panic(err)
+		}
+		minterAccNum, minterAccSeq := getUserInfo(minterAddr)
+		err = signTX(TxBuilder, TxConfig, minterAccNum, minterAccSeq, minterPrivKey)
+		if err != nil {
+			panic(err)
+		}
+		// minterAccSeq++
+		mint = false
+		transfer = true
+	case transfer:
+		alice, err := sdk.AccAddressFromBech32(aliceAddr)
+		if err != nil {
+			panic(err)
+		}
+		mint, err := sdk.AccAddressFromBech32(minterAddr)
+		if err != nil {
+			panic(err)
+		}
+		msg = banktypes.NewMsgSend(alice, mint, sdk.NewCoins(sdk.NewInt64Coin(tfDenom, transferAmt)))
+		err = TxBuilder.SetMsgs(msg)
+		if err != nil {
+			panic(err)
+		}
+		aliceAccNum, aliceAccSeq := getUserInfo(aliceAddr)
+		err = signTX(TxBuilder, TxConfig, aliceAccNum, aliceAccSeq, alicePrivKey)
+		if err != nil {
+			panic(err)
+		}
+		// aliceAccSeq++
+		transferCnt++
+		if transferCnt > transferCntLimit {
+			transfer = false
+			burn = true
+		}
+	case burn:
+		msg = tftypes.NewMsgBurn(minterAddr, sdk.NewInt64Coin(tfDenom, burnAmt))
+		err := TxBuilder.SetMsgs(msg)
+		if err != nil {
+			panic(err)
+		}
+		minterAccNum, minterAccSeq := getUserInfo(minterAddr)
+		err = signTX(TxBuilder, TxConfig, minterAccNum, minterAccSeq, minterPrivKey)
+		// minterAccSeq++
+		if err != nil {
+			panic(err)
+		}
 	}
-	masterMinter, err := sdk.AccAddressFromBech32(masterMinterAddr)
+	err := TxBuilder.SetMsgs(msg)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		panic("msg setting failed")
 	}
-
-	msg := banktypes.NewMsgSend(owner, masterMinter, sdk.NewCoins(sdk.NewInt64Coin("stake", 10000)))
-
-	return msg, nil
+	return nil
 }
 
-func createMsgs1() (*tftypes.MsgUpdateMasterMinter, error) {
-	// owner, err := sdk.AccAddressFromBech32(ownerAddr)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// masterMinter, err := sdk.AccAddressFromBech32(masterMinterAddr)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	msg := tftypes.NewMsgUpdateMasterMinter(ownerAddr, masterMinterAddr)
-
-	return msg, nil
-}
-
-func signTX(TxBuilder client.TxBuilder, TxConfig client.TxConfig, accNum uint64, accSeq uint64) error {
-	privB, _ := hex.DecodeString(pvtKey)
+func signTX(TxBuilder client.TxBuilder, TxConfig client.TxConfig, accNum uint64, accSeq uint64, privateKey string) error {
+	privB, _ := hex.DecodeString(privateKey)
 	priv1 := secp256k1.PrivKey{Key: privB}
 	/*************************************************************************************************/
 	privs := []cryptotypes.PrivKey{&priv1}
@@ -176,4 +212,38 @@ func signTX(TxBuilder client.TxBuilder, TxConfig client.TxConfig, accNum uint64,
 		return err
 	}
 	return nil
+}
+
+func getUserInfo(addressStr string) (uint64, uint64) {
+	conn, err2 := grpc.Dial(
+		"127.0.0.1:9090",    // Or your gRPC server address.
+		grpc.WithInsecure(), // The Cosmos SDK doesn't support any transport security mechanism.
+	)
+	if err2 != nil {
+		fmt.Println(err2)
+	}
+	defer conn.Close()
+	// keyBase := keys.ExportKeyCommand()
+	clientCtx := client.Context{}
+	// clientCtx.Offline = true
+	clientCtx.WithChainID(chainID)                  // set the chain ID
+	clientCtx.WithNodeURI("http://localhost:26657") // set the node URL
+	queryClient := authTypes.NewQueryClient(conn)
+	accountAddr, err1 := sdk.AccAddressFromBech32(addressStr)
+	if err1 != nil {
+		panic(err1)
+	}
+	accountResp, err := queryClient.Account(context.Background(), &authTypes.QueryAccountRequest{Address: accountAddr.String()})
+	if err != nil {
+		panic(err)
+	}
+	account := accountResp.GetAccount()
+
+	var acc authTypes.BaseAccount
+	err = proto.Unmarshal(account.Value, &acc)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// fmt.Println(acc)
+	return acc.AccountNumber, acc.Sequence
 }
