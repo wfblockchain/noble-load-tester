@@ -1,0 +1,8 @@
+syntax = "proto3";
+package tokenfactory;
+
+option go_package = "github.com/wfblockchain/noblechain/v5/x/tokenfactory/types";
+
+message Paused {
+  bool paused = 1;
+}

@@ -1,0 +1,25 @@
+syntax = "proto3";
+package cosmos2.params.v1beta1;
+
+import "cosmos_proto/params/v1beta1/params.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/wfblockchain/noble-paramauthority/x/params/types/proposal";
+
+// Msg defines the gRPC msg service.
+service Msg {
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// UpdateParamsRequest is request type for the Query/Params RPC method.
+message MsgUpdateParams {
+  string authority = 1;
+
+  cosmos_proto.params.v1beta1.ParameterChangeProposal change_proposal = 2 [(gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/x/params/types/proposal.ParameterChangeProposal"];
+}
+
+// UpdateParamsResponse is response type for the Query/Params RPC method.
+message MsgUpdateParamsResponse {
+  // param defines the queried parameter.
+  cosmos_proto.params.v1beta1.ParamChange param = 1 [(gogoproto.casttype) = "github.com/cosmos/cosmos-sdk/x/params/types/proposal.ParamChange"];
+}

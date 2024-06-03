@@ -1,0 +1,34 @@
+name: Unit Tests
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21
+
+      - name: Run Unit Tests
+        run: make test
+
+  scan:
+    needs: unit-tests
+    if: github.event_name == 'pull_request'
+    uses: circlefin/circle-public-github-workflows/.github/workflows/pr-scan.yaml@v1
+
+  release-sbom:
+    needs: unit-tests
+    if: github.event_name == 'push'
+    uses: circlefin/circle-public-github-workflows/.github/workflows/attach-release-assets.yaml@v1

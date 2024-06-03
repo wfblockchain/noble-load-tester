@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  coordinator:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "26670:26670"
+    expose:
+      - "26670"
+
+  worker:
+    build:
+      context: ./
+      dockerfile: Dockerfile-worker
+    env_file:
+      - .env
+    deploy:
+      replicas: ${NUM_OF_WORKERS}
+    depends_on:
+      - coordinator

@@ -1,0 +1,16 @@
+FROM golang:1.22-alpine3.18
+
+WORKDIR /workdir
+COPY ./noble-load-tester /workdir/noble-load-tester
+COPY ./tm-load-test/ /workdir/tm-load-test
+COPY ./noblechain /workdir/noblechain
+
+WORKDIR /workdir/noble-load-tester
+
+RUN apk add --no-cache git
+
+RUN go build -o ./build/noble-load-tester ./cmd/noble-load-tester/main.go
+
+RUN chmod +x ./build/noble-load-tester
+
+CMD ["./build/noble-load-tester", "worker", "--coordinator", "ws://coordinator:26670/websocket"]

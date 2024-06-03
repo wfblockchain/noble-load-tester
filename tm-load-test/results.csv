@@ -1,0 +1,6 @@
+Parameter,Value,Units
+total_time,10.001,seconds
+total_txs,4500,count
+total_bytes,1125000,bytes
+avg_tx_rate,449.961903,transactions per second
+avg_data_rate,112490.475713,bytes per second

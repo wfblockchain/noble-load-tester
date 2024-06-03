@@ -1,0 +1,19 @@
+version: v1
+deps:
+  - buf.build/cosmos/cosmos-sdk:2aa7ff2b23df473a85b7a7fe1884105d
+  - buf.build/cosmos/gogo-proto
+  - buf.build/googleapis/googleapis
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT
+  except:
+    - SERVICE_SUFFIX
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    # TODO: Remove the following exceptions later!
+    - FIELD_LOWER_SNAKE_CASE
+    - PACKAGE_DIRECTORY_MATCH
+    - PACKAGE_VERSION_SUFFIX
