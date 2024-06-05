@@ -1,0 +1,19 @@
+FROM golang:1.22-alpine3.18
+
+WORKDIR /workdir
+COPY ./noblechain /workdir/noblechain
+
+WORKDIR /workdir/noblechain
+
+RUN apk add --no-cache --upgrade bash
+RUN apk add --no-cache git
+RUN apk add --no-cache make
+
+# RUN make build
+RUN LEDGER_ENABLED=false make install
+
+RUN chmod +x ./play.sh 
+
+ENTRYPOINT ["./play.sh"]
+
+EXPOSE 26657

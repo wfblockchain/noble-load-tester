@@ -13,4 +13,4 @@ RUN go build -o ./build/noble-load-tester ./cmd/noble-load-tester/main.go
 
 RUN chmod +x ./build/noble-load-tester
 
-CMD ["./build/noble-load-tester", "worker", "--coordinator", "ws://coordinator:26670/websocket"]
+CMD ["./build/noble-load-tester", "worker", "--coordinator", "ws://coordinator-service:26670/websocket"]

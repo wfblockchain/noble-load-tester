@@ -4,7 +4,7 @@ services:
   coordinator:
     build:
       context: ./
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile-coordinator
     env_file:
       - .env
     ports:

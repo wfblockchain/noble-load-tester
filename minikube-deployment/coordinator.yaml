@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coordinator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coordinator
+  template:
+    metadata:
+      labels:
+        app: coordinator
+    spec:
+      containers:
+      - name: coordinator
+        image: noble-load-coordinator
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef:
+            name: env-config
+        ports:
+        - containerPort: 26670
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coordinator-service
+spec:
+  selector:
+    app: coordinator
+  ports:
+    - protocol: TCP
+      port: 26670
+      targetPort: 26670
+  type: LoadBalancer

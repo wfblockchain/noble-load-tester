@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 1s  # How frequently to scrape targets
+
+
+scrape_configs:
+  - job_name: 'load-test-metrics'
+    static_configs:
+      - targets: ['coordinator-service:26670']  # Your service's host and port
+    metrics_path: '/metrics'  # Endpoint where metrics are exposed

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noblechain
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noblechain
+  template:
+    metadata:
+      labels:
+        app: noblechain
+    spec:
+      containers:
+      - name: noblechain
+        image: noblechain
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef:
+            name: env-config
+        ports:
+        - containerPort: 26657
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noblechain-service
+spec:
+  selector:
+    app: noblechain
+  ports:
+    - protocol: TCP
+      port: 26657
+      targetPort: 26657
+  type: LoadBalancer
