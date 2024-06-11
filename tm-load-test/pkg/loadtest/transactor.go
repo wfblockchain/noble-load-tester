@@ -201,7 +201,7 @@ func (t *Transactor) GetBlockTime() []float64 {
 	defer t.statsMtx.Unlock()
 	var total []float64
 	for i := 1; i < len(t.blockTimes); i++ {
-		total = append(total, float64(t.blockTimes[i].Sub(t.blockTimes[i-1])))
+		total = append(total, float64(t.blockTimes[i].Sub(t.blockTimes[i-1]).Milliseconds()))
 	}
 	t.blockTimes = nil
 	return total
