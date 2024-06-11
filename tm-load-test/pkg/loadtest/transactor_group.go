@@ -14,14 +14,14 @@ type TransactorGroup struct {
 
 	statsMtx         sync.RWMutex
 	startTime        time.Time
-	txCounts         map[int]int     // The counts of all of the total transactions per transactor.
-	txBytes          map[int]int64   // The total number of transaction bytes sent per transactor.
-	txProcessingTime map[int]float64 // tx processing time per transactor.
-	blockTime        map[int]float64 // block processing time
+	txCounts         map[int]int       // The counts of all of the total transactions per transactor.
+	txBytes          map[int]int64     // The total number of transaction bytes sent per transactor.
+	txProcessingTime map[int][]float64 // tx processing time per transactor.
+	blockTime        map[int][]float64 // block processing time
 
 	progressCallbackMtx      sync.RWMutex
 	progressCallbackInterval time.Duration
-	progressCallback         func(g *TransactorGroup, txCount int, txBytes int64, txProcessingTime float64, blockTime float64)
+	progressCallback         func(g *TransactorGroup, txCount int, txBytes int64, txProcessingTime []float64, blockTime []float64)
 
 	stopProgressReporter    chan struct{} // Close this to stop the progress reporter.
 	progressReporterStopped chan struct{} // Closed when the progress reporter goroutine has completely stopped.
@@ -34,8 +34,8 @@ func NewTransactorGroup() *TransactorGroup {
 		transactors:              make([]*Transactor, 0),
 		txCounts:                 make(map[int]int),
 		txBytes:                  make(map[int]int64),
-		txProcessingTime:         make(map[int]float64),
-		blockTime:                make(map[int]float64),
+		txProcessingTime:         make(map[int][]float64),
+		blockTime:                make(map[int][]float64),
 		progressCallbackInterval: defaultProgressCallbackInterval,
 		stopProgressReporter:     make(chan struct{}, 1),
 		progressReporterStopped:  make(chan struct{}, 1),
@@ -74,7 +74,7 @@ func (g *TransactorGroup) AddAll(cfg *Config) error {
 	return nil
 }
 
-func (g *TransactorGroup) SetProgressCallback(interval time.Duration, callback func(*TransactorGroup, int, int64, float64, float64)) {
+func (g *TransactorGroup) SetProgressCallback(interval time.Duration, callback func(*TransactorGroup, int, int64, []float64, []float64)) {
 	g.progressCallbackMtx.Lock()
 	g.progressCallbackInterval = interval
 	g.progressCallback = callback
@@ -166,7 +166,7 @@ func (g *TransactorGroup) getStartTime() time.Time {
 	return g.startTime
 }
 
-func (g *TransactorGroup) trackTransactorProgress(id int, txCount int, txBytes int64, txProcessingTime float64, blockTime float64) {
+func (g *TransactorGroup) trackTransactorProgress(id int, txCount int, txBytes int64, txProcessingTime []float64, blockTime []float64) {
 	g.statsMtx.Lock()
 	g.txCounts[id] = txCount
 	g.txBytes[id] = txBytes
@@ -214,28 +214,24 @@ func (g *TransactorGroup) totalBytes() int64 {
 	return total
 }
 
-func (g *TransactorGroup) totalTxProcessingTime() float64 {
+func (g *TransactorGroup) totalTxProcessingTime() []float64 {
 	g.statsMtx.RLock()
 	defer g.statsMtx.RUnlock()
-	var total float64 = 0
-	var no float64 = 0
+	var total []float64
 	for _, txProcessingTime := range g.txProcessingTime {
-		total += txProcessingTime
-		no += 1
+		total = append(total, txProcessingTime...)
 	}
-	return total / no
+	return total
 }
 
-func (g *TransactorGroup) totalBlockTime() float64 {
+func (g *TransactorGroup) totalBlockTime() []float64 {
 	g.statsMtx.RLock()
 	defer g.statsMtx.RUnlock()
-	var total float64 = 0
-	var no float64 = 0
+	var total []float64
 	for _, blockTime := range g.blockTime {
-		total += blockTime
-		no += 1
+		total = append(total, blockTime...)
 	}
-	return total / no
+	return total
 }
 
 func (g *TransactorGroup) close() {

@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strings"
 	"sync"
@@ -60,9 +59,9 @@ type Transactor struct {
 	blockTimes       []time.Time
 
 	progressCallbackMtx      sync.RWMutex
-	progressCallbackID       int                                                                                   // A unique identifier for this transactor when calling the progress callback.
-	progressCallbackInterval time.Duration                                                                         // How frequently to call the progress update callback.
-	progressCallback         func(id int, txCount int, txBytes int64, txProcessingTime float64, blockTime float64) // Called with the total number of transactions executed so far.
+	progressCallbackID       int                                                                                       // A unique identifier for this transactor when calling the progress callback.
+	progressCallbackInterval time.Duration                                                                             // How frequently to call the progress update callback.
+	progressCallback         func(id int, txCount int, txBytes int64, txProcessingTime []float64, blockTime []float64) // Called with the total number of transactions executed so far.
 
 	stopMtx sync.RWMutex
 	stop    bool
@@ -125,7 +124,7 @@ func NewTransactor(remoteAddr string, config *Config) (*Transactor, error) {
 	}, nil
 }
 
-func (t *Transactor) SetProgressCallback(id int, interval time.Duration, callback func(int, int, int64, float64, float64)) {
+func (t *Transactor) SetProgressCallback(id int, interval time.Duration, callback func(int, int, int64, []float64, []float64)) {
 	t.progressCallbackMtx.Lock()
 	t.progressCallbackID = id
 	t.progressCallbackInterval = interval
@@ -182,34 +181,30 @@ func (t *Transactor) GetTxRate() float64 {
 	return t.txRate
 }
 
-func (t *Transactor) GetTxProcessingTime() float64 {
+func (t *Transactor) GetTxProcessingTime() []float64 {
 	t.statsMtx.Lock()
 	defer t.statsMtx.Unlock()
-	if len(t.txProcessingTime) == 0 {
-		return 0
+	var total []float64
+	for hash, txProcessTime := range t.txProcessingTime {
+		if !txProcessTime.Commited {
+			continue
+		}
+		txTime := float64(txProcessTime.EndTime.Sub(txProcessTime.StartTime).Milliseconds())
+		total = append(total, txTime)
+		delete(t.txProcessingTime, hash)
 	}
-	var sum float64 = 0
-	for _, txProcessTime := range t.txProcessingTime {
-		sum += float64(txProcessTime.EndTime.Sub(txProcessTime.StartTime).Milliseconds())
-	}
-	t.txProcessingTime = make(map[string]TxTime)
-	// return sum / float64(len(t.txProcessingTime))
-	return 500 + rand.NormFloat64()*200
+	return total
 }
 
-func (t *Transactor) GetBlockTime() float64 {
+func (t *Transactor) GetBlockTime() []float64 {
 	t.statsMtx.Lock()
 	defer t.statsMtx.Unlock()
-	if len(t.blockTimes) == 1 {
-		return 0
-	}
-	var sum float64 = 0
+	var total []float64
 	for i := 1; i < len(t.blockTimes); i++ {
-		sum += float64(t.blockTimes[i].Sub(t.blockTimes[i-1]))
+		total = append(total, float64(t.blockTimes[i].Sub(t.blockTimes[i-1])))
 	}
 	t.blockTimes = nil
-	// return sum / float64(len(t.blockTimes)-1)
-	return 1050 + rand.NormFloat64()*10
+	return total
 }
 
 // func (t *Transactor) serveMetrics() {

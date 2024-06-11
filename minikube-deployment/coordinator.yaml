@@ -35,3 +35,17 @@ spec:
       port: 26670
       targetPort: 26670
   type: LoadBalancer
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coordinator-nodeport-service
+spec:
+  type: NodePort
+  ports:
+  - port: 26670
+    targetPort: 26670
+    nodePort: 31000
+  selector:
+    app: coordinator

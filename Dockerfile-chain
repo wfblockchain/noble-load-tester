@@ -8,6 +8,7 @@ WORKDIR /workdir/noblechain
 RUN apk add --no-cache --upgrade bash
 RUN apk add --no-cache git
 RUN apk add --no-cache make
+RUN apk add --no-cache jq
 
 # RUN make build
 RUN LEDGER_ENABLED=false make install

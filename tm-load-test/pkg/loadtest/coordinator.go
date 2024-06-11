@@ -49,14 +49,14 @@ type Coordinator struct {
 	stop             chan struct{}
 
 	// Rudimentary statistics
-	startTime                    time.Time
-	lastProgressUpdate           time.Time
-	totalTxs                     int                // The last calculated total number of transactions across all workers.
-	totalBytes                   int64              // The last calculated total number of bytes in transactions sent across all workers.
-	totalTxsPerWorker            map[string]int     // The number of transactions sent by each worker.
-	totalBytesPerWorker          map[string]int64   // The total cumulative number of transaction bytes sent by each worker.
-	avgTxProcessTimePerWorker    map[string]float64 // The total cumulative number of transaction bytes sent by each worker.
-	avgBlockProcessTimePerWorker map[string]float64 // The total cumulative number of transaction bytes sent by each worker.
+	startTime                  time.Time
+	lastProgressUpdate         time.Time
+	totalTxs                   int                  // The last calculated total number of transactions across all workers.
+	totalBytes                 int64                // The last calculated total number of bytes in transactions sent across all workers.
+	totalTxsPerWorker          map[string]int       // The number of transactions sent by each worker.
+	totalBytesPerWorker        map[string]int64     // The total cumulative number of transaction bytes sent by each worker.
+	TxProcessTimesPerWorker    map[string][]float64 // The total cumulative number of transaction bytes sent by each worker.
+	BlockProcessTimesPerWorker map[string][]float64 // The total cumulative number of transaction bytes sent by each worker.
 
 	// Prometheus metrics
 	stateMetric            prometheus.Gauge // A code-based status metric for representing the coordinator's current state.
@@ -67,8 +67,8 @@ type Coordinator struct {
 	overallTxRateMetric    prometheus.Gauge // The overall transaction throughput rate (tx/sec) as measured by the coordinator since the beginning of the load test.
 	workersCompletedMetric prometheus.Gauge // The total number of workers that have completed their testing.
 	testUnderwayMetric     prometheus.Gauge // The ID of the load test currently underway (-1 if none).
-	txProcessingTime       prometheus.Gauge
-	blockTime              prometheus.Gauge
+	txProcessingTime       prometheus.Summary
+	blockTime              prometheus.Summary
 
 	mtx       sync.Mutex
 	cancelled bool
@@ -92,19 +92,19 @@ var upgrader = websocket.Upgrader{
 func NewCoordinator(cfg *Config, coordCfg *CoordinatorConfig) *Coordinator {
 	logger := logging.NewLogrusLogger("coordinator")
 	coord := &Coordinator{
-		cfg:                          cfg,
-		coordCfg:                     coordCfg,
-		logger:                       logger,
-		svrStopped:                   make(chan struct{}, 1),
-		workers:                      make(map[string]*remoteWorker),
-		workerRegister:               make(chan remoteWorkerRegisterRequest, coordCfg.ExpectWorkers),
-		workerUnregister:             make(chan remoteWorkerUnregisterRequest, coordCfg.ExpectWorkers),
-		workerUpdate:                 make(chan workerMsg, coordCfg.ExpectWorkers),
-		stop:                         make(chan struct{}, 1),
-		totalTxsPerWorker:            make(map[string]int),
-		totalBytesPerWorker:          make(map[string]int64),
-		avgTxProcessTimePerWorker:    make(map[string]float64),
-		avgBlockProcessTimePerWorker: make(map[string]float64),
+		cfg:                        cfg,
+		coordCfg:                   coordCfg,
+		logger:                     logger,
+		svrStopped:                 make(chan struct{}, 1),
+		workers:                    make(map[string]*remoteWorker),
+		workerRegister:             make(chan remoteWorkerRegisterRequest, coordCfg.ExpectWorkers),
+		workerUnregister:           make(chan remoteWorkerUnregisterRequest, coordCfg.ExpectWorkers),
+		workerUpdate:               make(chan workerMsg, coordCfg.ExpectWorkers),
+		stop:                       make(chan struct{}, 1),
+		totalTxsPerWorker:          make(map[string]int),
+		totalBytesPerWorker:        make(map[string]int64),
+		TxProcessTimesPerWorker:    make(map[string][]float64),
+		BlockProcessTimesPerWorker: make(map[string][]float64),
 		stateMetric: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "tmloadtest_coordinator_state",
 			Help: "The current state of the tm-load-test coordinator",
@@ -137,13 +137,23 @@ func NewCoordinator(cfg *Config, coordCfg *CoordinatorConfig) *Coordinator {
 			Name: "tmloadtest_coordinator_test_underway",
 			Help: "The ID of the load test currently underway (-1 if none)",
 		}),
-		txProcessingTime: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "tx_processing_time",
-			Help: "Tx processing time",
+		// txProcessingTime: promauto.NewGauge(prometheus.GaugeOpts{
+		// 	Name: "tx_processing_time",
+		// 	Help: "Tx processing time",
+		// }),
+		// blockTime: promauto.NewGauge(prometheus.GaugeOpts{
+		// 	Name: "block_time",
+		// 	Help: "block processing time",
+		// }),
+		txProcessingTime: promauto.NewSummary(prometheus.SummaryOpts{
+			Name:       "tx_processing_time",
+			Help:       "Tx processing time",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 		}),
-		blockTime: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "block_time",
-			Help: "block processing time",
+		blockTime: promauto.NewSummary(prometheus.SummaryOpts{
+			Name:       "block_processing_time",
+			Help:       "Block processing time",
+			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 		}),
 	}
 	mux := http.NewServeMux()
@@ -294,9 +304,9 @@ func (c *Coordinator) receiveTestingUpdates() error {
 				c.totalBytesPerWorker[msg.ID] = msg.TotalTxBytes
 			}
 
-			c.avgTxProcessTimePerWorker[msg.ID] = msg.TxProcessingTime
+			c.TxProcessTimesPerWorker[msg.ID] = msg.TxProcessingTime
 
-			c.avgBlockProcessTimePerWorker[msg.ID] = msg.BlockTime
+			c.BlockProcessTimesPerWorker[msg.ID] = msg.BlockTime
 
 			switch msg.State {
 			case workerTesting:
@@ -365,8 +375,8 @@ func (c *Coordinator) registerRemoteWorker(rw *remoteWorker) error {
 	c.workers[id] = rw
 	c.totalTxsPerWorker[id] = 0
 	c.totalBytesPerWorker[id] = 0
-	c.avgTxProcessTimePerWorker[id] = 0
-	c.avgBlockProcessTimePerWorker[id] = 0
+	c.TxProcessTimesPerWorker[id] = []float64{}
+	c.BlockProcessTimesPerWorker[id] = []float64{}
 	c.logger.Info("Added remote worker", "id", id)
 	return nil
 }
@@ -393,20 +403,6 @@ func (c *Coordinator) logTestingProgress(completed int) {
 	for _, txBytes := range c.totalBytesPerWorker {
 		totalBytes += txBytes
 	}
-	avgTxProcessingTime := float64(0)
-	now := float64(0)
-	for _, txProcessTime := range c.avgTxProcessTimePerWorker {
-		avgTxProcessingTime += txProcessTime
-		now += 1
-	}
-	avgTxProcessingTime = avgTxProcessingTime / now
-	avgBlockProcessingTime := float64(0)
-	now = float64(0)
-	for _, blockProcessTime := range c.avgBlockProcessTimePerWorker {
-		avgBlockProcessingTime += blockProcessTime
-		now += 1
-	}
-	avgBlockProcessingTime = avgBlockProcessingTime / now
 	overallElapsed := time.Since(c.startTime).Seconds()
 	elapsed := time.Since(c.lastProgressUpdate).Seconds()
 
@@ -439,9 +435,17 @@ func (c *Coordinator) logTestingProgress(completed int) {
 	c.txDataRateMetric.Set(avgDataRate)
 	c.overallTxRateMetric.Set(overallAvgRate)
 	c.workersCompletedMetric.Set(float64(completed))
-	c.txProcessingTime.Set(avgTxProcessingTime)
-	c.blockTime.Set(avgBlockProcessingTime)
-
+	for _, txProcessTimes := range c.TxProcessTimesPerWorker {
+		for _, txProcessTime := range txProcessTimes {
+			c.txProcessingTime.Observe(txProcessTime)
+		}
+	}
+	for _, blockProcessTimes := range c.BlockProcessTimesPerWorker {
+		for _, blockProcessTime := range blockProcessTimes {
+			c.blockTime.Observe(blockProcessTime)
+		}
+	}
+	// c.blockTime.Set(maxTime)
 	// if we're done and we need to write aggregate statistics
 	if completed >= c.coordCfg.ExpectWorkers && len(c.cfg.StatsOutputFile) > 0 {
 		stats := AggregateStats{

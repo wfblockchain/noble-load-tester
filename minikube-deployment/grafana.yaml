@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: load-test-grafana-v3
+        image: load-test-grafana
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000

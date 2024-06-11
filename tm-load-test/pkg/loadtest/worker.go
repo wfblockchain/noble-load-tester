@@ -273,7 +273,7 @@ func (w *Worker) executeLoadTest() error {
 	return nil
 }
 
-func (w *Worker) reportProgress(tg *TransactorGroup, totalTxs int, totalTxBytes int64, txProcessingTimes float64, blockTimes float64) {
+func (w *Worker) reportProgress(tg *TransactorGroup, totalTxs int, totalTxBytes int64, txProcessingTimes []float64, blockTimes []float64) {
 	w.logger.Debug("Reporting progress back to coordinator", "totalTxs", totalTxs)
 	if err := w.sock.WriteWorkerMsg(workerMsg{
 		ID:               w.ID(),

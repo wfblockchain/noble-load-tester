@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"strconv"
 
 	// "github.com/CosmWasm/wasmd/x/wasm/ioutils"
 	// "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -83,28 +82,28 @@ func init() {
 	aliceAddr = os.Getenv("ALICE_ADDR")
 	minterPrivKey = os.Getenv("MINTER_PRIV")
 	alicePrivKey = os.Getenv("ALICE_PRIV")
-	minterAccNumInt, err := strconv.Atoi(os.Getenv("MINTER_ACC_NUM"))
-	if err != nil {
-		panic(err)
-	}
-	minterAccNum = uint64(minterAccNumInt)
-	aliceAccNumInt, err := strconv.Atoi(os.Getenv("ALICE_ACC_NUM"))
-	if err != nil {
-		panic(err)
-	}
-	aliceAccNum = uint64(aliceAccNumInt)
-	minterAccSeqInt, err := strconv.Atoi(os.Getenv("MINTER_ACC_SEQ"))
-	if err != nil {
-		panic(err)
-	}
-	minterAccSeq = uint64(minterAccSeqInt)
-	aliceAccSeqInt, err := strconv.Atoi(os.Getenv("ALICE_ACC_SEQ"))
-	if err != nil {
-		panic(err)
-	}
-	aliceAccSeq = uint64(aliceAccSeqInt)
-	// minterAccNum, minterAccSeq = getUserInfo(minterAddr)
-	// aliceAccNum, aliceAccSeq = getUserInfo(aliceAddr)
+	// minterAccNumInt, err := strconv.Atoi(os.Getenv("MINTER_ACC_NUM"))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// minterAccNum = uint64(minterAccNumInt)
+	// aliceAccNumInt, err := strconv.Atoi(os.Getenv("ALICE_ACC_NUM"))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// aliceAccNum = uint64(aliceAccNumInt)
+	// minterAccSeqInt, err := strconv.Atoi(os.Getenv("MINTER_ACC_SEQ"))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// minterAccSeq = uint64(minterAccSeqInt)
+	// aliceAccSeqInt, err := strconv.Atoi(os.Getenv("ALICE_ACC_SEQ"))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// aliceAccSeq = uint64(aliceAccSeqInt)
+	minterAccNum, minterAccSeq = getUserInfo(minterAddr)
+	aliceAccNum, aliceAccSeq = getUserInfo(aliceAddr)
 }
 
 func NewNobleClientFactory() *NobleClientFactory {
@@ -336,8 +335,8 @@ func signTX(TxBuilder client.TxBuilder, TxConfig client.TxConfig, accNum uint64,
 
 func getUserInfo(addressStr string) (uint64, uint64) {
 	conn, err2 := grpc.Dial(
-		"172.17.0.1:9090",   // Or your gRPC server address.
-		grpc.WithInsecure(), // The Cosmos SDK doesn't support any transport security mechanism.
+		os.Getenv("CHAIN_HOST")+":9090", // Or your gRPC server address.
+		grpc.WithInsecure(),             // The Cosmos SDK doesn't support any transport security mechanism.
 	)
 	if err2 != nil {
 		fmt.Println(err2)
@@ -346,8 +345,8 @@ func getUserInfo(addressStr string) (uint64, uint64) {
 	// keyBase := keys.ExportKeyCommand()
 	clientCtx := client.Context{}
 	// clientCtx.Offline = true
-	clientCtx.WithChainID(chainID)                   // set the chain ID
-	clientCtx.WithNodeURI("http://172.17.0.1:26657") // set the node URL
+	clientCtx.WithChainID(chainID)                                        // set the chain ID
+	clientCtx.WithNodeURI("http://" + os.Getenv("CHAIN_HOST") + ":26657") // set the node URL
 	queryClient := authTypes.NewQueryClient(conn)
 	accountAddr, err1 := sdk.AccAddressFromBech32(addressStr)
 	if err1 != nil {

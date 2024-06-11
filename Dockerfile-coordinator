@@ -1,20 +1,22 @@
 FROM golang:1.22-alpine3.18
 
 WORKDIR /workdir
-COPY ./noble-load-tester /workdir/noble-load-tester
-COPY ./tm-load-test/ /workdir/tm-load-test
-COPY ./noblechain /workdir/noblechain
-COPY ./start-coordinator.sh /workdir/
-
-RUN chmod +x ./start-coordinator.sh 
-
-WORKDIR /workdir/noble-load-tester
 
 RUN apk add --no-cache --upgrade bash
 RUN apk add --no-cache git
 
-RUN go build -o ./build/noble-load-tester ./cmd/noble-load-tester/main.go
+COPY ./noblechain /workdir/noblechain
+COPY ./noble-load-tester /workdir/noble-load-tester
+COPY ./start-coordinator.sh /workdir/
+COPY ./go.mod /workdir/
 
+RUN go mod download
+RUN chmod +x ./start-coordinator.sh 
+
+WORKDIR /workdir/noble-load-tester
+
+COPY ./tm-load-test/ /workdir/tm-load-test
+RUN go build -o ./build/noble-load-tester ./cmd/noble-load-tester/main.go 
 RUN chmod +x ./build/noble-load-tester
 
 ENTRYPOINT ["../start-coordinator.sh"]

@@ -157,3 +157,6 @@ sleep 2
 nobled --home $CHAINDIR/$CHAINID $KEYRING tx tokenfactory update-blacklister $(nobled --home $CHAINDIR/$CHAINID $KEYRING keys show blacklister -a) --from tf1_owner -y
 sleep 2
 nobled --home $CHAINDIR/$CHAINID $KEYRING tx tokenfactory update-pauser $(nobled --home $CHAINDIR/$CHAINID $KEYRING keys show pauser -a) --from tf1_owner -y
+
+
+tail -f /dev/null
