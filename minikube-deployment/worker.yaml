@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: worker
-        image: noble-load-worker-v2
+        image: noble-load-worker
         imagePullPolicy: IfNotPresent
         envFrom:
         - configMapRef:

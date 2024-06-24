@@ -69,6 +69,8 @@ type Coordinator struct {
 	testUnderwayMetric     prometheus.Gauge // The ID of the load test currently underway (-1 if none).
 	txProcessingTime       prometheus.Summary
 	blockTime              prometheus.Summary
+	avgTxProcessingTime    prometheus.Gauge
+	avgBlockTime           prometheus.Gauge
 
 	mtx       sync.Mutex
 	cancelled bool
@@ -137,14 +139,14 @@ func NewCoordinator(cfg *Config, coordCfg *CoordinatorConfig) *Coordinator {
 			Name: "tmloadtest_coordinator_test_underway",
 			Help: "The ID of the load test currently underway (-1 if none)",
 		}),
-		// txProcessingTime: promauto.NewGauge(prometheus.GaugeOpts{
-		// 	Name: "tx_processing_time",
-		// 	Help: "Tx processing time",
-		// }),
-		// blockTime: promauto.NewGauge(prometheus.GaugeOpts{
-		// 	Name: "block_time",
-		// 	Help: "block processing time",
-		// }),
+		avgTxProcessingTime: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: "avg_tx_processing_time",
+			Help: "Tx processing time",
+		}),
+		avgBlockTime: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: "avg_block_time",
+			Help: "block processing time",
+		}),
 		txProcessingTime: promauto.NewSummary(prometheus.SummaryOpts{
 			Name:       "tx_processing_time",
 			Help:       "Tx processing time",
@@ -435,17 +437,30 @@ func (c *Coordinator) logTestingProgress(completed int) {
 	c.txDataRateMetric.Set(avgDataRate)
 	c.overallTxRateMetric.Set(overallAvgRate)
 	c.workersCompletedMetric.Set(float64(completed))
+	var totalTime float64 = 0
+	var cnt int = 0
 	for _, txProcessTimes := range c.TxProcessTimesPerWorker {
 		for _, txProcessTime := range txProcessTimes {
 			c.txProcessingTime.Observe(txProcessTime)
+			totalTime += txProcessTime
+			cnt++
 		}
 	}
+	if cnt != 0 {
+		c.avgTxProcessingTime.Set(totalTime / float64(cnt))
+	}
+	totalTime = 0
+	cnt = 0
 	for _, blockProcessTimes := range c.BlockProcessTimesPerWorker {
 		for _, blockProcessTime := range blockProcessTimes {
 			c.blockTime.Observe(blockProcessTime)
+			totalTime += blockProcessTime
+			cnt++
 		}
 	}
-	// c.blockTime.Set(maxTime)
+	if cnt != 0 {
+		c.avgBlockTime.Set(totalTime / float64(cnt))
+	}
 	// if we're done and we need to write aggregate statistics
 	if completed >= c.coordCfg.ExpectWorkers && len(c.cfg.StatsOutputFile) > 0 {
 		stats := AggregateStats{

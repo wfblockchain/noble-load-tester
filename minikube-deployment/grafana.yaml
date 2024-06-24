@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: load-test-grafana
+        image: grafana/grafana:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
@@ -23,13 +23,22 @@ spec:
           value: "admin"  
         volumeMounts:
         - name: grafana-dashboards
-          mountPath: /etc/grafana/provisioning/dashboards
+          mountPath: /var/lib/grafana/dashboards/
+        - name: grafana-dashboards-providers
+          mountPath: /etc/grafana/provisioning/dashboards/dashboardproviders.yaml
+          subPath: dashboardproviders.yaml
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources/
       volumes:
       - name: grafana-dashboards
         configMap:
           name: grafana-dashboards
-        # persistentVolumeClaim:
-        #   claimName: grafana-provisioning-pvc
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboards-providers
+        configMap:
+          name: grafana-dashboards-providers
 ---
 apiVersion: v1
 kind: Service
