@@ -3,11 +3,13 @@ package noble
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 
 	// "github.com/CosmWasm/wasmd/x/wasm/ioutils"
 	// "github.com/CosmWasm/wasmd/x/wasm/types"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -23,9 +25,9 @@ import (
 
 	// "github.com/wfblockchain/distributed_finance/chains/difi/app"
 
-	"github.com/wfblockchain/noblechain/v5/app"
-	"github.com/wfblockchain/noblechain/v5/cmd"
-	tftypes "github.com/wfblockchain/noblechain/v5/x/tokenfactory/types"
+	"github.com/noble-assets/noble/v5/app"
+	"github.com/noble-assets/noble/v5/cmd"
+	tftypes "github.com/noble-assets/noble/v5/x/tokenfactory/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -33,31 +35,22 @@ import (
 )
 
 const (
-	chainID = "noble-1"
+	chainID = "tokenfactory-1"
 
 	mintAmt          = 1
 	burnAmt          = 1
 	transferAmt      = 10
 	transferCntLimit = 100
-	tfDenom          = "utoken"
+	tfDenom          = "cent"
 	wasmBinaryPath   = "/home/leo10/distributed_finance/cw-contracts/target/wasm32-unknown-unknown/release"
 )
 
 type NobleClientFactory struct{}
 
-type NobleClient struct {
-	// minterAddr    string
-	// aliceAddr     string
-	// minterPrivKey string
-	// alicePrivKey  string
-	// minterAccSeq  uint64
-	// minterAccNum  uint64
-	// aliceAccSeq   uint64
-	// aliceAccNum   uint64
-}
+type NobleClient struct{}
 
 var (
-	// _            wasmtypes.MsgStoreCode
+	_             wasmtypes.MsgStoreCode
 	_             loadtest.ClientFactory = (*NobleClientFactory)(nil)
 	_             loadtest.Client        = (*NobleClient)(nil)
 	minterAccSeq  uint64                 = 1715
@@ -65,19 +58,36 @@ var (
 	aliceAccSeq   uint64                 = 0
 	aliceAccNum   uint64                 = 11
 	store         bool                   = false
-	mint          bool                   = true
+	mint          bool                   = false
+	mint_contract bool                   = true
 	transfer      bool                   = false
 	burn          bool                   = false
 	transferCnt   int                    = 0
-	minterAddr    string                 = "noble1ea9xey2ujyrm8xzadvrykkfg59tqyjr4md2p8y"
-	aliceAddr     string                 = "noble16aq2nvjac83x4yykmpdd86p099x40shd7sad2w"
-	minterPrivKey string                 = "929dc0dbdba0f90c837fdf4db88fdd5cd71ffed09f3cea66bcb680a13b2dc58c"
-	alicePrivKey  string                 = "d788bfafb3464cc006bd1e2f29832d85bebfb291342143a6f1e56635a69034fe"
+	minterAddr    string                 = "wf1ydunrnzaxr7expcmeley0kv43kwtytcq6xgtaz"
+	aliceAddr     string                 = "wf190hcqtnvydvfkddm674xv79txef6ux6qt8x8un"
+	minterPrivKey string                 = "eb530cc184efe6ed3fd42c56765b00edb041691c660bcdcdb41255d85d4da7cf"
+	alicePrivKey  string                 = "934f19c89a2aa67219e60e51452e78b7c91c4c4d96ab94995936c541d721398e"
+	contractAddr  string                 = "wf14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s2s4a5q"
 )
+
+type Mint struct {
+	Address string `json:"address"`
+	Denom   string `json:"denom"`
+	Value   int    `json:"value"`
+}
+
+type Tf struct {
+	Mint Mint `json:"mint"`
+}
+
+type ExecuteMsgTfMint struct {
+	Tf Tf `json:"tf"`
+}
 
 func init() {
 	cfg := sdk.GetConfig()
-	cfg.SetBech32PrefixForAccount("noble", "noblepub")
+	cfg.SetBech32PrefixForAccount("wf", "wfpub")
+	contractAddr = os.Getenv("CONTRACT_ADDR")
 	minterAddr = os.Getenv("MINTER_ADDR")
 	aliceAddr = os.Getenv("ALICE_ADDR")
 	minterPrivKey = os.Getenv("MINTER_PRIV")
@@ -104,6 +114,8 @@ func init() {
 	// aliceAccSeq = uint64(aliceAccSeqInt)
 	minterAccNum, minterAccSeq = getUserInfo(minterAddr)
 	aliceAccNum, aliceAccSeq = getUserInfo(aliceAddr)
+	// minterAccNum, minterAccSeq = 10, 2
+	// aliceAccNum, aliceAccSeq = 13, 0
 }
 
 func NewNobleClientFactory() *NobleClientFactory {
@@ -115,44 +127,6 @@ func (f *NobleClientFactory) ValidateConfig(cfg loadtest.Config) error {
 }
 
 func (f *NobleClientFactory) NewClient(cfg loadtest.Config) (loadtest.Client, error) {
-	// minterAddr := os.Getenv("MINTER_ADDR")
-	// aliceAddr := os.Getenv("ALICE_ADDR")
-	// minterPrivKey := os.Getenv("MINTER_PRIV")
-	// alicePrivKey := os.Getenv("ALICE_PRIV")
-	// minterAccNum, minterAccSeq := getUserInfo(minterAddr)
-	// aliceAccNum, aliceAccSeq := getUserInfo(aliceAddr)
-	// minterAccNumInt, err := strconv.Atoi(os.Getenv("MINTER_ACC_NUM"))
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// minterAccNum := uint64(minterAccNumInt)
-	// aliceAccNumInt, err := strconv.Atoi(os.Getenv("ALICE_ACC_NUM"))
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// aliceAccNum := uint64(aliceAccNumInt)
-	// minterAccSeqInt, err := strconv.Atoi(os.Getenv("MINTER_ACC_SEQ"))
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// minterAccSeq := uint64(minterAccSeqInt)
-	// aliceAccSeqInt, err := strconv.Atoi(os.Getenv("ALICE_ACC_SEQ"))
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// aliceAccSeq := uint64(aliceAccSeqInt)
-	// minterAccNum, minterAccSeq = getUserInfo(minterAddr)
-	// aliceAccNum, aliceAccSeq = getUserInfo(aliceAddr)
-	// return &NobleClient{
-	// 	minterAddr:    minterAddr,
-	// 	aliceAddr:     aliceAddr,
-	// 	minterPrivKey: minterPrivKey,
-	// 	alicePrivKey:  alicePrivKey,
-	// 	minterAccNum:  minterAccNum,
-	// 	minterAccSeq:  minterAccSeq,
-	// 	aliceAccNum:   aliceAccNum,
-	// 	aliceAccSeq:   aliceAccSeq,
-	// }, nil
 	return &NobleClient{}, nil
 }
 
@@ -161,7 +135,7 @@ func (c *NobleClient) GenerateTx() ([]byte, error) {
 	TxBuilder := TxConfig.NewTxBuilder()
 	TxBuilder.SetGasLimit(500000)
 
-	err := c.createMsgsAndSign(TxBuilder, TxConfig)
+	err := createMsgsAndSign(TxBuilder, TxConfig)
 	if err != nil {
 		fmt.Println(err)
 		panic("msg creation failed")
@@ -176,9 +150,36 @@ func (c *NobleClient) GenerateTx() ([]byte, error) {
 	return txBytes, nil
 }
 
-func (c *NobleClient) createMsgsAndSign(TxBuilder client.TxBuilder, TxConfig client.TxConfig) error {
+func createMsgsAndSign(TxBuilder client.TxBuilder, TxConfig client.TxConfig) error {
 	var msg sdk.Msg
 	switch {
+	case mint_contract:
+		mnt := Mint{Address: aliceAddr, Denom: tfDenom, Value: mintAmt}
+		tf := Tf{Mint: mnt}
+		executeMsg := ExecuteMsgTfMint{Tf: tf}
+		execMsg, err := json.Marshal(executeMsg)
+		if err != nil {
+			panic(err)
+		}
+		var wasm_msg = wasmtypes.MsgExecuteContract{
+			Sender:   minterAddr,
+			Contract: contractAddr,
+			Funds:    sdk.NewCoins(sdk.NewInt64Coin("ustake", 0)),
+			Msg:      execMsg,
+		}
+
+		err = TxBuilder.SetMsgs(&wasm_msg)
+		if err != nil {
+			panic(err)
+		}
+		// minterAccNum, minterAccSeq := getUserInfo(minterAddr)
+		err = signTX(TxBuilder, TxConfig, minterAccNum, minterAccSeq, minterPrivKey)
+		if err != nil {
+			panic(err)
+		}
+		minterAccSeq++
+		// mint = false
+		// transfer = true
 	case mint:
 		msg = tftypes.NewMsgMint(minterAddr, aliceAddr, sdk.NewInt64Coin(tfDenom, mintAmt))
 		err := TxBuilder.SetMsgs(msg)
@@ -193,7 +194,6 @@ func (c *NobleClient) createMsgsAndSign(TxBuilder client.TxBuilder, TxConfig cli
 		minterAccSeq++
 		// mint = false
 		// transfer = true
-		fmt.Println(minterAccSeq)
 	case transfer:
 		alice, err := sdk.AccAddressFromBech32(aliceAddr)
 		if err != nil {

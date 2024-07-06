@@ -1,5 +1,0 @@
-- name: noble-fiattokenfactory-simd
-  dockerfile: cosmos
-  build-target: make build
-  binaries:
-    - simapp/build/simd

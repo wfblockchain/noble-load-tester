@@ -3,7 +3,7 @@ FROM golang:1.22-alpine3.18
 WORKDIR /workdir
 RUN apk add --no-cache git
 
-COPY ./noblechain /workdir/noblechain
+COPY ./noblefork /workdir/noblefork
 COPY ./noble-load-tester /workdir/noble-load-tester
 COPY ./go.mod /workdir/
 RUN go mod download

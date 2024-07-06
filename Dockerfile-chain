@@ -1,9 +1,9 @@
 FROM golang:1.22-alpine3.18
 
 WORKDIR /workdir
-COPY ./noblechain /workdir/noblechain
+COPY ./noblefork /workdir/noblefork
 
-WORKDIR /workdir/noblechain
+WORKDIR /workdir/noblefork
 
 RUN apk add --no-cache --upgrade bash
 RUN apk add --no-cache git
@@ -11,10 +11,11 @@ RUN apk add --no-cache make
 RUN apk add --no-cache jq
 
 # RUN make build
-RUN LEDGER_ENABLED=false make install
+RUN export CGO_ENABLED=1
+RUN LEDGER_ENABLED=false  make build
 
-RUN chmod +x ./play.sh 
+RUN chmod +x ./play_tf.sh 
 
-ENTRYPOINT ["./play.sh"]
+ENTRYPOINT ["./play_tf.sh"]
 
 EXPOSE 26657

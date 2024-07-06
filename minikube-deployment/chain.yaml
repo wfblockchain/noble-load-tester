@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: noblechain
+  name: noblefork
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: noblechain
+      app: noblefork
   template:
     metadata:
       labels:
-        app: noblechain
+        app: noblefork
     spec:
       containers:
-      - name: noblechain
-        image: noblechain
+      - name: noblefork
+        image: noblefork
         imagePullPolicy: IfNotPresent
         envFrom:
         - configMapRef:
@@ -27,10 +27,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: noblechain-service
+  name: noblefork-service
 spec:
   selector:
-    app: noblechain
+    app: noblefork
   ports:
     - protocol: TCP
       port: 26657
