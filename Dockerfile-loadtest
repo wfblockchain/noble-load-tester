@@ -1,0 +1,44 @@
+FROM golang:1.22-alpine3.18@sha256:d1a601b64de09e2fa38c95e55838961811d5ca11062a8f4230a5c434b3ae2a34 AS go-builder
+
+WORKDIR /workdir
+
+RUN apk add --no-cache --upgrade bash
+RUN apk add --no-cache git
+
+COPY ./noblefork /workdir/noblefork
+COPY ./noble-load-tester /workdir/noble-load-tester
+COPY ./go.mod /workdir/
+
+RUN go mod download
+
+COPY ./start-coordinator.sh /workdir/
+COPY ./start-worker.sh /workdir/
+
+RUN chmod +x ./start-coordinator.sh 
+RUN chmod +x ./start-worker.sh 
+
+WORKDIR /workdir/noble-load-tester
+
+COPY ./tm-load-test/ /workdir/tm-load-test
+RUN go build -o ./build/noble-load-tester ./cmd/noble-load-tester/main.go 
+RUN chmod +x ./build/noble-load-tester
+
+# ENTRYPOINT ["../start-coordinator.sh"]
+# ENTRYPOINT ["../start-worker.sh"]
+
+
+FROM --platform=linux alpine:3.18@sha256:d9a39933bee4ccb6d934b7b5632cdf8c42658f3cecc5029681338f397142af6e
+
+RUN addgroup noble \
+    && adduser -G noble -D -h /noble noble
+
+WORKDIR /noble
+
+COPY --from=go-builder ./workdir/noble-load-tester/build/noble-load-tester /usr/local/bin/noble-load-tester
+COPY --from=go-builder ./workdir/start-coordinator.sh .
+COPY --from=go-builder ./workdir/start-worker.sh .
+
+
+USER noble 
+
+EXPOSE 26670
