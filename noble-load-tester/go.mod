@@ -1,6 +1,6 @@
 module github.com/wfblockchain/noble-load-tester
 
-go 1.22
+go 1.21
 
 require (
 	// github.com/cosmos/cosmos-sdk v0.47.   // use for noblechain
@@ -134,7 +134,7 @@ require (
 	google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230726155614-23370e0ffb3e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230815205213-6bfd019c3878 // indirect
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -142,10 +142,12 @@ require (
 	nhooyr.io/websocket v1.8.6 // indirect
 )
 
-require github.com/noble-assets/noble/v5 v5.0.0-rc.0
+require (
+	github.com/CosmWasm/wasmd v0.31.0
+	github.com/noble-assets/noble/v5 v5.0.0-rc.0
+)
 
 require (
-	github.com/CosmWasm/wasmd v0.31.0 // indirect
 	github.com/CosmWasm/wasmvm v1.2.1 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Workiva/go-datastructures v1.0.53 // indirect
@@ -182,5 +184,4 @@ replace (
 	github.com/prometheus/procfs => github.com/prometheus/procfs v0.10.1
 	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.34.27
 	golang.org/x/exp => golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
-
 )
